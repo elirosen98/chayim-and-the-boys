@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Whack-a-Brother</title>
+    <style>
+        body {
+            text-align: center;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+            margin: 0;
+        }
+
+        #game-area {
+            width: 500px;
+            height: 500px;
+            background-color: lightblue;
+            position: relative;
+            margin: 20px auto;
+            border: 2px solid black;
+        }
+
+        .brother, .decoy, .heart {
+            width: 70px;
+            height: 70px;
+            position: absolute;
+            border-radius: 50%;
+            cursor: pointer;
+            background-size: cover;
+            background-position: center;
+        }
+
+        .heart {
+            width: 40px;
+            height: 40px;
+            font-size: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #start-btn {
+            padding: 10px 20px;
+            font-size: 20px;
+            cursor: pointer;
+            margin: 20px auto;
+            display: block;
+        }
+
+        #hot-streak {
+            font-size: 24px;
+            color: orange;
+            margin: 10px;
+        }
+
+        #lives, #misses {
+            font-size: 24px;
+            color: red;
+            margin: 10px;
+        }
+
+        .crown {
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 40px;
+        }
+
+        #crown-message {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 20px;
+            border: 2px solid black;
+            z-index: 1000;
+        }
+
+        #miss-msg, #misclick-msg {
+            position: absolute;
+            top: 50%;
+            font-size: 20px;
+            color: red;
+            opacity: 0;
+            transition: opacity 2s ease-out;
+        }
+
+        #miss-msg {
+            left: 10px;
+            transform: translateY(-50%);
+        }
+
+        #misclick-msg {
+            right: 10px;
+            transform: translateY(-50%);
+        }
+    </style>
+</head>
+<body>
+<h1>Whack-a-Brother</h1>
+<p>Score: <span id="score">0</span></p>
+<p>Misses: <span id="misses">3</span></p>
+<!-- Add instructions here -->
+<div id="instructions" style="margin: 20px; font-size: 18px;">
+    <p><strong>How to Play:</strong></p>
+    <ul style="text-align: left; display: inline-block;">
+        <li>Click on your brothers to score points.</li>
+        <li>Avoid clicking on your sisters (they're decoys!).</li>
+        <li>Hearts will give you extra lives.</li>
+        <li>You win when you reach 15 points, but the game keeps going!</li>
+        <li>If you lose all your lives, it's game over!</li>
+    </ul>
+</div>
+<p id="hot-streak"></p>
+<p id="lives"></p>
+<div id="game-area">
+    <p id="miss-msg"></p>
+    <p id="misclick-msg"></p>
+</div>
+<button id="start-btn">Start Game</button>
+<div id="crown-message" style="display: none;">
+    <p>👑 You are The Chayim of "Chayim and the Boys"! 👑</p>
+    <p>Select your crowned brother:</p>
+    <div id="brother-selection"></div>
+</div>
+
+<script>
+    let score = 0;
+    let misses = 3;
+    let lives = 3;
+    let hotStreak = 0;
+    let selectedBrother = null;
+    let gameInterval;
+    let endlessMode = false;
+
+    const decoyMessages = [
+        "Oops! That wasn't a brother!",
+        "Missed again? Focus up!",
+        "Are you even trying?",
+        "Decoy got you! Better luck next time!",
+        "That's embarrassing..."
+    ];
+    const missMessages = [
+        "You let him get away!",
+        "Too slow! The brother escaped!",
+        "Missed it! Keep your eyes open!",
+        "They're faster than you, huh?",
+        "Whiffed it! Better luck next time."
+    ];
+
+    const brothers = ["brother1.jpg", "brother2.jpg", "brother3.jpg"];
+    const sisters = ["sister1.jpg", "sister2.jpg", "sister3.jpg"];
+
+    document.getElementById("start-btn").addEventListener("click", startGame);
+
+    function startGame() {
+        score = 0;
+        misses = 3;
+        lives = 3;
+        hotStreak = 0;
+        endlessMode = false;
+        selectedBrother = null;
+
+        document.getElementById("score").textContent = score;
+        document.getElementById("misses").textContent = misses;
+        document.getElementById("lives").textContent = "❤".repeat(lives);
+        document.getElementById("hot-streak").textContent = "";
+        document.getElementById("start-btn").style.display = "none";
+
+        clearInterval(gameInterval);
+        gameInterval = setInterval(spawnCharacter, 800);
+    }
+
+    function spawnCharacter() {
+        const rand = Math.random();
+        let character;
+
+        if (rand < 0.03) {
+            character = createHeart();
+        } else {
+            character = Math.random() > 0.3 ? createBrother() : createDecoy();
+        }
+
+        document.getElementById("game-area").appendChild(character);
+
+        setTimeout(() => {
+            if (document.body.contains(character)) {
+                if (character.classList.contains("brother")) {
+                    handleMiss();
+                }
+                character.remove();
+            }
+        }, 1200);
+    }
+
+    function createBrother() {
+        const brother = document.createElement("div");
+        brother.classList.add("brother");
+        const img = brothers[Math.floor(Math.random() * brothers.length)];
+        brother.style.backgroundImage = `url(${img})`;
+        setPosition(brother);
+
+        if (selectedBrother && img === selectedBrother) {
+            const crown = document.createElement("div");
+            crown.textContent = "👑";
+            crown.classList.add("crown");
+            brother.appendChild(crown);
+        }
+
+        brother.addEventListener("click", (event) => {
+            event.stopPropagation();
+            score++;
+            hotStreak++;
+            document.getElementById("score").textContent = score;
+            updateHotStreak();
+            brother.remove();
+            if (score === 15 && !endlessMode) celebrateVictory();
+        });
+
+        return brother;
+    }
+
+    function createDecoy() {
+        const decoy = document.createElement("div");
+        decoy.classList.add("decoy");
+        decoy.style.backgroundImage = `url(${sisters[Math.floor(Math.random() * sisters.length)]})`;
+        setPosition(decoy);
+
+        decoy.addEventListener("click", () => {
+            handleMisclick();
+            decoy.remove();
+        });
+
+        return decoy;
+    }
+
+    function createHeart() {
+        const heart = document.createElement("div");
+        heart.classList.add("heart");
+        heart.textContent = "❤";
+        setPosition(heart);
+
+        heart.addEventListener("click", () => {
+            if (lives < 3) {
+                lives++;
+                document.getElementById("lives").textContent = "❤".repeat(lives);
+                heart.remove();
+            }
+        });
+
+        return heart;
+    }
+
+    function setPosition(element) {
+        const gameArea = document.getElementById("game-area");
+        element.style.top = Math.random() * (gameArea.clientHeight - 70) + "px";
+        element.style.left = Math.random() * (gameArea.clientWidth - 70) + "px";
+    }
+
+    function handleMiss() {
+        lives--;
+        document.getElementById("lives").textContent = "❤".repeat(lives);
+        displayMessage('miss');
+        checkGameOver();
+    }
+
+    function handleMisclick() {
+        lives--;
+        hotStreak = 0;
+        document.getElementById("lives").textContent = "❤".repeat(lives);
+        displayMessage('misclick');
+        updateHotStreak();
+        checkGameOver();
+    }
+
+    function displayMessage(type) {
+        const msgElement = type === 'misclick' ? document.getElementById("misclick-msg") : document.getElementById("miss-msg");
+        const message = type === 'misclick' ? decoyMessages[Math.floor(Math.random() * decoyMessages.length)] : missMessages[Math.floor(Math.random() * missMessages.length)];
+        msgElement.textContent = message;
+        msgElement.style.opacity = 1;
+        setTimeout(() => {
+            msgElement.style.opacity = 0;
+        }, 2000);
+    }
+
+    function updateHotStreak() {
+        document.getElementById("hot-streak").textContent = hotStreak >= 3 ? `On Fire! 🔥 Streak: ${hotStreak}` : "";
+    }
+
+    function checkGameOver() {
+        if (lives <= 0) {
+            clearInterval(gameInterval);
+            alert("Game Over! Your score: " + score);
+            document.getElementById("start-btn").textContent = "Play Again";
+            document.getElementById("start-btn").style.display = "block";
+        }
+    }
+
+    function celebrateVictory() {
+        clearInterval(gameInterval);
+        document.getElementById("crown-message").style.display = "block";
+        const selectionArea = document.getElementById("brother-selection");
+        selectionArea.innerHTML = brothers.map(brother => `<img src="${brother}" style="width: 100px; height: 100px; cursor: pointer;" onclick="selectBrother('${brother}')">`).join('');
+    }
+
+    function selectBrother(brother) {
+        selectedBrother = brother;
+        document.getElementById("crown-message").style.display = "none";
+        endlessMode = true;
+        gameInterval = setInterval(spawnCharacter, 800);
+    }
+</script>
+</body>
+</html>
